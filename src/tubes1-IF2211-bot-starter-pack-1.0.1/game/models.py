@@ -76,10 +76,6 @@ class Board:
     def diamonds(self) -> List[GameObject]:
         return [d for d in self.game_objects if d.type == "DiamondGameObject"]
 
-    # @property
-    # def teleports(self) -> List[GameObject]:
-    #     return [d for d in self.game_objects if d.type == "TeleportGameObject"]
-
     def get_bot(self, bot: Bot) -> Optional[GameObject]:
         for b in self.bots:
             if b.properties.name == bot.name:
