@@ -1,168 +1,35 @@
-import random
 from typing import Optional, Tuple, Dict, List
 
 from game.logic.base import BaseLogic
-from game.models import GameObject, Board, Position
-from ..util import get_direction
+from game.models import GameObject, Board, Position, Base
+from ..util import get_direction, position_equals
 
 
 class StockCat(BaseLogic):
     def __init__(self):
-        self.directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
         self.goal_position: Optional[Position] = None
-        self.current_direction = 0
-
         self.teleporters: Dict[str, GameObject] = {}
-        self.reset_button_position = None
         self.target_after_teleport: Optional[Position] = None
 
-    """Fungsi Mengambil Himpunan Kandidat"""
-
+    # Method Pembantu
     def get_diamonds(self, board: Board) -> List[GameObject]:
-        """Mengambil daftar diamond biru dan merah dari papan permainan."""
+        # Mengambil daftar diamond biru dan merah dari papan permainan.
         return [d for d in board.game_objects if d.type == "DiamondGameObject"]
 
     def get_teleporters(self, board: Board) -> List[GameObject]:
-        """Mengambil daftar teleporter dari papan permainan."""
+        # Mengambil daftar teleporter dari papan permainan.
         return [d for d in board.game_objects if d.type == "TeleportGameObject"]
 
     def get_reset_button(self, board: Board) -> GameObject:
-        """Mengambil tombol reset dari papan permainan."""
+        # Mengambil tombol reset dari papan permainan.
         return [d for d in board.game_objects if d.type == "DiamondButtonGameObject"]
 
-    """Akhir dari Fungsi Mengambil Himpunan Kandidat"""
-
-    def next_move(self, board_bot: GameObject, board: Board) -> Tuple[int, int]:
-        props = board_bot.properties
-        current_position = board_bot.position
-
-        #Jika Kantong Penuh Kembali ke Base
-        if props.diamonds == 5 or self.goal_position is None:
-            base = board_bot.properties.base
-            # Hitung jarak ke base langsung dan via teleport
-            jarak_langsung = self.get_distance_without_teleport(current_position, base)
-            jarak_teleport = self.get_distance_with_teleport(current_position, base, board)
-            if jarak_teleport < jarak_langsung:
-                # Temukan teleporter terdekat untuk digunakan
-                min_distance = float('inf')
-                best_tele = None
-                for pair in self.teleporters.values():
-                    if len(pair) == 2:
-                        for tele in pair:
-                            distance = self.get_distance_without_teleport(current_position, tele.position)
-                            if distance < min_distance:
-                                min_distance = distance
-                                best_tele = tele
-                if best_tele:
-                    self.goal_position = best_tele.position
-                else:
-                    self.goal_position = base
-            else:
-                self.goal_position = base
-        else:
-            if self.target_after_teleport:
-                if current_position == self.goal_position:
-                    # Sudah sampai di teleporter, sekarang arahkan ke tujuan akhir
-                    self.goal_position = self.target_after_teleport
-                    self.target_after_teleport = None
-            # Inisialisasi Himpunan Kandidat
-            diamonds = self.get_diamonds(board)
-            teleporters = self.get_teleporters(board)
-
-            self.teleporters = {}
-            for tele in teleporters:
-                pair_id = tele.properties.pair_id
-                if pair_id not in self.teleporters:
-                    self.teleporters[pair_id] = []
-                self.teleporters[pair_id].append(tele)
-
-            reset_button = self.get_reset_button(board)
-
-            # Hitung Jarak tanpa Teleporter dan Dengan Teleporter Setiap kandidat
-            candidates = []
-
-            for diamond in diamonds:
-                distance = self.get_distance_with_teleport(current_position, diamond.position,board)
-                candidates.append((diamond, distance))
-            for button in reset_button:
-                distance = self.get_distance_with_teleport(current_position, button.position,board)
-                candidates.append((button, distance))
-
-            # Cari Kandidat dengan nilai p/w terbaik
-            # p = points, w = distance
-            best_candidate = None
-            best_p = -1
-            best_w = float('inf')
-            best_density = -1
-            for candidate, distance in candidates:
-                if candidate.type == "DiamondGameObject":
-                    p = 4 if candidate.properties.points == 1 else 6
-                    if props.diamonds + candidate.properties.points > 5:
-                        p = -10000
-                elif candidate.type == "DiamondButtonGameObject":
-                    p = 1
-
-                w = distance
-                density = p/w
-                if density > best_density or (density == best_density and w < best_w):
-                    best_candidate = candidate
-                    best_p = p
-                    best_w = w
-                    best_density = density
-
-            #  Arahkan ke kandidat terbaik
-            if best_candidate is None:
-                # Tidak ada kandidat yang ditemukan, tetap diam
-                return 0, 0
-            else:
-                #TODO: Perbaiki logika teleportasi dan tanpa teleportasi
-                # Tentukan apakah jarak terbaik melibatkan teleport
-                direct_distance = self.get_distance_without_teleport(current_position, best_candidate.position)
-                teleport_distance = self.get_distance_with_teleport(current_position, best_candidate.position, board)
-
-                if teleport_distance < direct_distance:
-                    # Temukan jalur teleportasi terbaik ke kandidat
-                    min_total = float('inf')
-                    for pair in self.teleporters.values():
-                        if len(pair) != 2:
-                            continue
-                        t1, t2 = pair
-
-                        d1 = self.get_distance_without_teleport(current_position, t1.position) + \
-                            self.get_distance_without_teleport(t2.position, best_candidate.position) + 1
-
-                        d2 = self.get_distance_without_teleport(current_position, t2.position) + \
-                            self.get_distance_without_teleport(t1.position, best_candidate.position) + 1
-
-                        if d1 < min_total:
-                            self.goal_position = t1.position
-                            self.target_after_teleport = best_candidate.position
-                            min_total = d1
-                        if d2 < min_total:
-                            self.goal_position = t2.position
-                            self.target_after_teleport = best_candidate.position
-                            min_total = d2
-                else:
-                    self.goal_position = best_candidate.position
-                    self.target_after_teleport = None
-
-        delta_x, delta_y = get_direction(
-            current_position.x,
-            current_position.y,
-            self.goal_position.x,
-            self.goal_position.y,
-        )
-
-        return delta_x, delta_y
-
-
-
     def get_distance_without_teleport(self, pos1: Position, pos2: Position) -> int:
-        """Menghitung jarak Manhattan antara dua posisi tanpa mempertimbangkan teleporter"""
+        # Menghitung jarak Manhattan antara dua posisi tanpa mempertimbangkan teleporter
         return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
 
     def get_distance_with_teleport(self, pos1: Position, pos2: Position, board: Board) -> int:
-        """Menghitung jarak antara dua posisi dengan mempertimbangkan teleporter"""
+        # Menghitung jarak antara dua posisi dengan mempertimbangkan teleporter
         direct_distance = self.get_distance_without_teleport(pos1, pos2)
 
         # Jika tidak ada teleport, langsung return jarak tanpa teleport
@@ -193,3 +60,151 @@ class StockCat(BaseLogic):
             best_distance = min(best_distance,total1, total2)
 
         return best_distance
+
+    def is_position_equals(self, pos1: Position, pos2: Position) -> bool:
+        if pos1 is None or pos2 is None:
+            return False
+
+        return pos1.x == pos2.x and pos1.y == pos2.y
+    # Akhir dari Inisialisasi Method Pembantu
+
+    def next_move(self, board_bot: GameObject, board: Board) -> Tuple[int, int]:
+        props = board_bot.properties
+        current_position = board_bot.position
+        base = board_bot.properties.base
+
+        # Fungsi Solusi
+        if props.diamonds == 5:
+            # Hitung jarak ke base langsung dan via teleport
+            jarak_langsung = self.get_distance_without_teleport(current_position, base)
+            jarak_teleport = self.get_distance_with_teleport(current_position, base, board)
+            if jarak_teleport < jarak_langsung:
+                # Temukan teleporter terdekat untuk digunakan
+                min_distance = float('inf')
+                best_tele = None
+                for pair in self.teleporters.values():
+                    if len(pair) == 2:
+                        for tele in pair:
+                            distance = self.get_distance_without_teleport(current_position, tele.position)
+                            if distance < min_distance:
+                                min_distance = distance
+                                best_tele = tele
+                if best_tele:
+                    self.goal_position = best_tele.position
+                else:
+                    self.goal_position = base
+            else:
+                self.goal_position = base
+        else:
+            if self.target_after_teleport:
+                if current_position == self.goal_position:
+                    # Sudah sampai di teleporter, sekarang arahkan ke tujuan akhir
+                    print("Sudah sampai di teleporter, sekarang arahkan ke tujuan akhir")
+                    if self.goal_position == self.target_after_teleport:
+                        self.target_after_teleport = base
+                    else:
+                        self.goal_position = self.target_after_teleport
+                        self.target_after_teleport = None
+
+            # Inisialisasi Himpunan Kandidat
+            diamonds = board.diamonds
+            teleporters = self.get_teleporters(board)
+            reset_button = self.get_reset_button(board)
+            bots = board.bots
+
+            self.teleporters = {}
+            for tele in teleporters:
+                pair_id = tele.properties.pair_id
+                if pair_id not in self.teleporters:
+                    self.teleporters[pair_id] = []
+                self.teleporters[pair_id].append(tele)
+
+            # Hitung Jarak tanpa Teleporter dan Dengan Teleporter Setiap kandidat
+            candidates = []
+
+            for diamond in diamonds:
+                distance = self.get_distance_with_teleport(current_position, diamond.position,board)
+                candidates.append((diamond, distance))
+            for button in reset_button:
+                distance = self.get_distance_with_teleport(current_position, button.position,board)
+                candidates.append((button, distance))
+            for bot in bots:
+                distance = self.get_distance_with_teleport(current_position, bot.position,board)
+                candidates.append((bot, distance))
+            for tele in teleporters:
+                distance = self.get_distance_with_teleport(current_position, tele.position,board)
+                candidates.append((tele, distance))
+
+            # Fungsi Seleksi
+            # Cari Kandidat dengan nilai p/w atau dengan densitas terbaik
+            # p = jarak (semakin kecil semakin untung), w = poin
+            best_candidate = None
+            best_p = -1
+            best_w = 100
+            best_density = 100
+            for candidate, distance in candidates:
+                # Fungsi Kelayakan
+                if candidate.type == "TeleportGameObject":
+                    continue
+                if candidate.type == "BotGameObject":
+                    continue
+                if candidate.type == "DiamondGameObject":
+                    # Fungsi Objective
+                    # Diamond Biru w = 2, Diamond Merah w = 4, karena perbandingan poin Diamond Biru dan Merah adalah 1/2
+                    w = 2 if candidate.properties.points == 1 else 4
+                    if props.diamonds + candidate.properties.points > 5:
+                        # Jika mengambil akan melebihi kapasitas, maka tidak boleh diambil atau buat nilai p setinggi mungkin
+                        p = 1000
+                    else:
+                        p = distance
+                elif candidate.type == "DiamondButtonGameObject":
+                    # Tombol Reset w = 1, saya kasih w = 1 karena reset button adalah opsi terakhir jika tidak ada diamond yang bisa diambil / terlalu jauh
+                    w = 1
+                    p = distance
+
+                density = p/w
+                if density < best_density:
+                    # Himpunan Solusi
+                    best_candidate = candidate
+                    best_p = p
+                    best_w = w
+                    best_density = density
+
+            # Tentukan apakah jarak terbaik melalui teleport
+            direct_distance = self.get_distance_without_teleport(current_position, best_candidate.position)
+            teleport_distance = self.get_distance_with_teleport(current_position, best_candidate.position, board)
+
+            if teleport_distance < direct_distance:
+                # Temukan jalur teleportasi terbaik ke kandidat
+                min_total = float('inf')
+                for pair in self.teleporters.values():
+                    if len(pair) != 2:
+                        continue
+                    teleport_1, teleport_2 = pair
+
+                    distance_1 = self.get_distance_without_teleport(current_position, teleport_1.position) + \
+                        self.get_distance_without_teleport(teleport_2.position, best_candidate.position) + 1
+
+                    distance_2 = self.get_distance_without_teleport(current_position, teleport_2.position) + \
+                        self.get_distance_without_teleport(teleport_1.position, best_candidate.position) + 1
+
+                    if distance_1 < min_total:
+                        self.goal_position = teleport_1.position
+                        self.target_after_teleport = best_candidate.position
+                        min_total = distance_1
+                    if distance_2 < min_total:
+                        self.goal_position = teleport_2.position
+                        self.target_after_teleport = best_candidate.position
+                        min_total = distance_2
+            else:
+                self.goal_position = best_candidate.position
+                self.target_after_teleport = None
+
+        delta_x, delta_y = get_direction(
+            current_position.x,
+            current_position.y,
+            self.goal_position.x,
+            self.goal_position.y,
+        )
+
+        return delta_x, delta_y
