@@ -97,14 +97,10 @@ class StockCat(BaseLogic):
                 self.goal_position = base
         else:
             if self.target_after_teleport:
-                if current_position == self.goal_position:
+                if self.is_position_equals(current_position, self.goal_position):
                     # Sudah sampai di teleporter, sekarang arahkan ke tujuan akhir
-                    print("Sudah sampai di teleporter, sekarang arahkan ke tujuan akhir")
-                    if self.goal_position == self.target_after_teleport:
-                        self.target_after_teleport = base
-                    else:
-                        self.goal_position = self.target_after_teleport
-                        self.target_after_teleport = None
+                    self.goal_position = self.target_after_teleport
+                    self.target_after_teleport = None
 
             # Inisialisasi Himpunan Kandidat
             diamonds = board.diamonds
@@ -123,16 +119,16 @@ class StockCat(BaseLogic):
             candidates = []
 
             for diamond in diamonds:
-                distance = self.get_distance_with_teleport(current_position, diamond.position,board)
+                distance = self.get_distance_with_teleport(current_position, diamond.position, board)
                 candidates.append((diamond, distance))
             for button in reset_button:
-                distance = self.get_distance_with_teleport(current_position, button.position,board)
+                distance = self.get_distance_with_teleport(current_position, button.position, board)
                 candidates.append((button, distance))
             for bot in bots:
-                distance = self.get_distance_with_teleport(current_position, bot.position,board)
+                distance = self.get_distance_with_teleport(current_position, bot.position, board)
                 candidates.append((bot, distance))
             for tele in teleporters:
-                distance = self.get_distance_with_teleport(current_position, tele.position,board)
+                distance = self.get_distance_with_teleport(current_position, tele.position, board)
                 candidates.append((tele, distance))
 
             # Fungsi Seleksi
@@ -162,7 +158,7 @@ class StockCat(BaseLogic):
                     w = 1
                     p = distance
 
-                density = p/w
+                density = p / w
                 if density < best_density:
                     # Himpunan Solusi
                     best_candidate = candidate
@@ -199,6 +195,9 @@ class StockCat(BaseLogic):
             else:
                 self.goal_position = best_candidate.position
                 self.target_after_teleport = None
+
+        if self.is_position_equals(current_position, self.goal_position):
+            self.goal_position = base
 
         delta_x, delta_y = get_direction(
             current_position.x,
