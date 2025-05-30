@@ -4,7 +4,9 @@
 
 ### NIM: 122140205
 
-#### 1. Cara Menjalankan Bot
+## Cara Menjalankan Bot
+
+#### 1. Clone atau Download Repository
 
 ##### Clone atau download zip repository
 
