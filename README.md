@@ -8,7 +8,7 @@
 
 ### StockCat
 
-#### Strategi bot yang dikembangkan menggunakan pendekatan Greedy by Density dengan mempertimbangkan menggunakan teleporter
+#### Strategi bot yang dikembangkan menggunakan pendekatan Greedy by Density dengan mempertimbangkan menggunakan teleport yang diharapkan memberikan solusi memperoleh keuntungan sebesar besarnya dengan jarak terkecil
 
 ## Cara Menjalankan Bot
 
