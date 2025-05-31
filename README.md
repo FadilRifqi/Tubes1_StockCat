@@ -4,6 +4,12 @@
 
 ### NIM: 122140205
 
+## Penjelasan Algoritma
+
+### StockCat
+
+#### Strategi bot yang dikembangkan menggunakan pendekatan Greedy by Density dengan mempertimbangkan menggunakan teleporter
+
 ## Cara Menjalankan Bot
 
 #### 1. Clone atau Download Repository
